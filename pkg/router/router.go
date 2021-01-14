@@ -17,14 +17,26 @@ func Init(db *gorm.DB) *gin.Engine {
 	r.Use(gin.Recovery())
 	r.Use(middleware.CORS())
 
+	JWTExceptions := map[string]map[string]bool{
+		"/api/v1/signin": {
+			"POST": true,
+		},
+		"/api/v1/signup": {
+			"POST": true,
+		},
+	}
+
+	r.Use(middleware.JWT(JWTExceptions))
+
 	api := controller.Controller{DB: db}
 
 	apiRouter := r.Group("/api/v1")
+	apiRouter.POST("/signup", api.CreateUser)
+
 	users := apiRouter.Group("/users")
 	{
 		users.GET("/", api.GetUsers)
 		users.GET("/:id", api.GetUser)
-		users.POST("/", api.CreateUser)
 		users.PUT("/:id", api.UpdateUser)
 		users.DELETE("/:id", api.DeleteUser)
 	}

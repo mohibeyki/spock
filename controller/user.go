@@ -2,9 +2,12 @@ package controller
 
 import (
 	"log"
+	"time"
 
+	"github.com/gbrlsnchs/jwt/v3"
 	"github.com/gin-gonic/gin"
 	"github.com/mohibeyki/spock/model"
+	"github.com/mohibeyki/spock/pkg/config"
 	"github.com/mohibeyki/spock/service"
 )
 
@@ -57,7 +60,7 @@ func (base *Controller) GetUsers(c *gin.Context) {
 	c.JSON(200, data)
 }
 
-// CreateUser -> [POST] on /users/
+// CreateUser -> [POST] on /signup
 func (base *Controller) CreateUser(c *gin.Context) {
 	user := new(model.User)
 
@@ -70,7 +73,24 @@ func (base *Controller) CreateUser(c *gin.Context) {
 		return
 	}
 
-	c.JSON(200, user)
+	now := time.Now()
+	payload := model.Payload{
+		Payload: jwt.Payload{
+			Issuer:         "spock",
+			Subject:        user.Email,
+			Audience:       jwt.Audience{"https://biook.me"},
+			ExpirationTime: jwt.NumericDate(now.Add(30 * 24 * time.Hour)),
+			NotBefore:      jwt.NumericDate(now.Add(30 * time.Minute)),
+			IssuedAt:       jwt.NumericDate(now),
+			JWTID:          "",
+		},
+		Avatar: user.Avatar,
+		Role:   user.Role,
+	}
+
+	conf := config.GetConfig()
+	token, err := jwt.Sign(payload, conf.Auth.Algorithm)
+	c.JSON(200, map[string]interface{}{"token": token, "user": user})
 }
 
 // UpdateUser -> [PUT] on /users/:id

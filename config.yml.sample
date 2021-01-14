@@ -1,3 +1,8 @@
+auth:
+  header: "Authorization"
+  prefix: "Bearer"
+  privateKey: "secure"
+
 database:
   dbname: "spock"
   username: "spock"

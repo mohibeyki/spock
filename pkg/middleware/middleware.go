@@ -1,6 +1,14 @@
 package middleware
 
-import "github.com/gin-gonic/gin"
+import (
+	"log"
+	"strings"
+
+	"github.com/gbrlsnchs/jwt/v3"
+	"github.com/gin-gonic/gin"
+	"github.com/mohibeyki/spock/model"
+	"github.com/mohibeyki/spock/pkg/config"
+)
 
 // CORS middleware
 func CORS() gin.HandlerFunc {
@@ -14,5 +22,30 @@ func CORS() gin.HandlerFunc {
 			return
 		}
 		c.Next()
+	}
+}
+
+// JWT middleware
+func JWT(exceptionsMap map[string]map[string]bool) gin.HandlerFunc {
+	config := config.GetConfig()
+	return func(c *gin.Context) {
+		if value, ok := exceptionsMap[c.Request.URL.String()][c.Request.Method]; ok && value {
+			c.Next()
+		} else {
+			authHeader := c.GetHeader(config.Auth.Header)
+			if strings.HasPrefix(authHeader, config.Auth.Prefix) {
+				var payload model.Payload
+				header, err := jwt.Verify([]byte(authHeader), config.Auth.Algorithm, &payload)
+				if err != nil {
+					log.Println("ERROR", err)
+					c.AbortWithStatusJSON(401, model.ErrResponse{Message: err.Error()})
+				} else {
+					log.Println("NO ERROR!", header)
+					c.Next()
+				}
+			} else {
+				c.AbortWithStatusJSON(401, model.ErrResponse{Message: "missing authorization header!"})
+			}
+		}
 	}
 }

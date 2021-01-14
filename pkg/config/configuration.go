@@ -3,6 +3,7 @@ package config
 import (
 	"log"
 
+	"github.com/gbrlsnchs/jwt/v3"
 	"github.com/spf13/viper"
 )
 
@@ -11,6 +12,7 @@ var Config *Configuration
 
 // Configuration struct holds all configuration data types
 type Configuration struct {
+	Auth     AuthConfiguration
 	Server   ServerConfiguration
 	Database DatabaseConfiguration
 }
@@ -32,6 +34,7 @@ func Init() {
 		log.Fatalf("Unable to decode into struct, %v", err)
 	}
 
+	configuration.Auth.Algorithm = jwt.NewHS512([]byte(configuration.Auth.PrivateKey))
 	Config = configuration
 }
 

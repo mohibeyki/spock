@@ -28,3 +28,5 @@
 *.code-workspace
 
 spock
+private
+config.yml
