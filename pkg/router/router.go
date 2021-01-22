@@ -32,6 +32,7 @@ func Init(db *gorm.DB) *gin.Engine {
 
 	apiRouter := r.Group("/api/v1")
 	apiRouter.POST("/signup", api.CreateUser)
+	apiRouter.POST("/signin", api.Signin)
 
 	users := apiRouter.Group("/users")
 	{

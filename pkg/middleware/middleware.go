@@ -1,13 +1,12 @@
 package middleware
 
 import (
-	"log"
 	"strings"
 
-	"github.com/gbrlsnchs/jwt/v3"
 	"github.com/gin-gonic/gin"
 	"github.com/mohibeyki/spock/model"
 	"github.com/mohibeyki/spock/pkg/config"
+	"github.com/mohibeyki/spock/service"
 )
 
 // CORS middleware
@@ -34,13 +33,11 @@ func JWT(exceptionsMap map[string]map[string]bool) gin.HandlerFunc {
 		} else {
 			authHeader := c.GetHeader(config.Auth.Header)
 			if strings.HasPrefix(authHeader, config.Auth.Prefix) {
-				var payload model.Payload
-				header, err := jwt.Verify([]byte(authHeader), config.Auth.Algorithm, &payload)
+				user, err := service.GetAndValidateToken(authHeader[7:])
 				if err != nil {
-					log.Println("ERROR", err)
 					c.AbortWithStatusJSON(401, model.ErrResponse{Message: err.Error()})
 				} else {
-					log.Println("NO ERROR!", header)
+					c.Set("user", user)
 					c.Next()
 				}
 			} else {

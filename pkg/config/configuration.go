@@ -3,7 +3,6 @@ package config
 import (
 	"log"
 
-	"github.com/gbrlsnchs/jwt/v3"
 	"github.com/spf13/viper"
 )
 
@@ -33,8 +32,6 @@ func Init() {
 	if err != nil {
 		log.Fatalf("Unable to decode into struct, %v", err)
 	}
-
-	configuration.Auth.Algorithm = jwt.NewHS512([]byte(configuration.Auth.PrivateKey))
 	Config = configuration
 }
 
