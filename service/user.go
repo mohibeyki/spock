@@ -86,3 +86,13 @@ func DeleteUser(db *gorm.DB, id string) error {
 	}
 	return nil
 }
+
+// DeleteUserByEmail deletes a user by their email
+func DeleteUserByEmail(db *gorm.DB, email string) error {
+	user := new(model.User)
+	if err := db.Where("email = ? ", email).Delete(&user).Error; err != nil {
+		log.Println(err)
+		return err
+	}
+	return nil
+}
