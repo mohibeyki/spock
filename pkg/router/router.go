@@ -32,13 +32,14 @@ func Init(db *gorm.DB) *gin.Engine {
 
 	apiRouter := r.Group("/api/v1")
 	apiRouter.POST("/signup", api.CreateUser)
+	apiRouter.POST("/signin", api.Signin)
 
 	users := apiRouter.Group("/users")
 	{
 		users.GET("/", api.GetUsers)
-		users.GET("/:id", api.GetUser)
-		users.PUT("/:id", api.UpdateUser)
-		users.DELETE("/:id", api.DeleteUser)
+		users.GET("/:email", api.GetUser)
+		users.PUT("/:email", api.UpdateUser)
+		users.DELETE("/:email", api.DeleteUser)
 	}
 
 	// Protected routes

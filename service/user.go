@@ -22,6 +22,20 @@ func GetUser(db *gorm.DB, id string) (*model.User, error) {
 	return user, err
 }
 
+// GetUserByEmail searches the DB for a specific user
+func GetUserByEmail(db *gorm.DB, email string) (*model.User, error) {
+	var err error
+	user := new(model.User)
+
+	if err := db.Where("email = ? ", email).First(&user).Error; err != nil {
+		log.Println(err)
+
+		return nil, err
+	}
+
+	return user, err
+}
+
 // GetUsers returns a slice of users
 func GetUsers(c *gin.Context, db *gorm.DB, args model.Args) ([]model.User, int64, int64, error) {
 	users := []model.User{}
@@ -67,6 +81,16 @@ func UpdateUser(db *gorm.DB, user *model.User) (*model.User, error) {
 func DeleteUser(db *gorm.DB, id string) error {
 	user := new(model.User)
 	if err := db.Where("id = ? ", id).Delete(&user).Error; err != nil {
+		log.Println(err)
+		return err
+	}
+	return nil
+}
+
+// DeleteUserByEmail deletes a user by their email
+func DeleteUserByEmail(db *gorm.DB, email string) error {
+	user := new(model.User)
+	if err := db.Where("email = ? ", email).Delete(&user).Error; err != nil {
 		log.Println(err)
 		return err
 	}

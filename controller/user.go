@@ -2,22 +2,19 @@ package controller
 
 import (
 	"log"
-	"time"
 
-	"github.com/gbrlsnchs/jwt/v3"
 	"github.com/gin-gonic/gin"
 	"github.com/mohibeyki/spock/model"
-	"github.com/mohibeyki/spock/pkg/config"
 	"github.com/mohibeyki/spock/service"
 )
 
 var err error
 
-// GetUser -> [GET] on /users/:id
+// GetUser -> [GET] on /users/:email
 func (base *Controller) GetUser(c *gin.Context) {
-	id := c.Params.ByName("id")
+	email := c.Params.ByName("email")
 
-	user, err := service.GetUser(base.DB, id)
+	user, err := service.GetUserByEmail(base.DB, email)
 	if err != nil {
 		c.AbortWithStatus(404)
 	}
@@ -48,6 +45,7 @@ func (base *Controller) GetUsers(c *gin.Context) {
 	users, filteredData, totalData, err := service.GetUsers(c, base.DB, args)
 	if err != nil {
 		c.AbortWithStatus(404)
+		return
 	}
 
 	// Fill return data struct
@@ -66,63 +64,107 @@ func (base *Controller) CreateUser(c *gin.Context) {
 
 	c.ShouldBindJSON(&user)
 
-	user, err := service.CreateUser(base.DB, user)
+	u, err := service.GetUserByEmail(base.DB, user.Email)
+	if u != nil && err == nil {
+		c.JSON(400, model.ErrResponse{Message: "user with the same email exists"})
+		return
+	}
+
+	hash := service.HashAndSalt(user.Password)
+	user.Password = hash
+
+	user, err = service.CreateUser(base.DB, user)
 	if err != nil {
 		log.Println(err)
 		c.AbortWithStatus(404)
 		return
 	}
 
-	now := time.Now()
-	payload := model.Payload{
-		Payload: jwt.Payload{
-			Issuer:         "spock",
-			Subject:        user.Email,
-			Audience:       jwt.Audience{"https://biook.me"},
-			ExpirationTime: jwt.NumericDate(now.Add(30 * 24 * time.Hour)),
-			NotBefore:      jwt.NumericDate(now.Add(30 * time.Minute)),
-			IssuedAt:       jwt.NumericDate(now),
-			JWTID:          "",
-		},
-		Avatar: user.Avatar,
-		Role:   user.Role,
-	}
+	token := service.GenerateToken(user)
 
-	conf := config.GetConfig()
-	token, err := jwt.Sign(payload, conf.Auth.Algorithm)
 	c.JSON(200, map[string]interface{}{"token": token, "user": user})
 }
 
-// UpdateUser -> [PUT] on /users/:id
-func (base *Controller) UpdateUser(c *gin.Context) {
-	id := c.Params.ByName("id")
+// Signin -> [POST] on /signin
+func (base *Controller) Signin(c *gin.Context) {
+	type signInData struct {
+		Email    string `json:"email"`
+		Password string `json:"password"`
+	}
 
-	user, err := service.GetUser(base.DB, id)
-	if err != nil {
-		c.AbortWithStatus(404)
+	inputUser := new(signInData)
+	c.ShouldBindJSON(&inputUser)
+
+	if len(inputUser.Email) == 0 || len(inputUser.Password) == 0 {
+		c.JSON(400, model.ErrResponse{Message: "missing email or password!"})
 		return
 	}
 
-	c.ShouldBindJSON(&user)
-
-	user, err = service.UpdateUser(base.DB, user)
-	if err != nil {
-		c.AbortWithStatus(404)
+	user, err := service.GetUserByEmail(base.DB, inputUser.Email)
+	if user == nil || err != nil {
+		c.JSON(404, model.ErrResponse{Message: "user not found!"})
 		return
 	}
 
-	c.JSON(200, user)
+	if !service.ComparePasswords(user.Password, inputUser.Password) {
+		c.JSON(404, model.ErrResponse{Message: "user not found!"})
+		return
+	}
+
+	token := service.GenerateToken(user)
+	c.JSON(200, map[string]interface{}{"token": token, "user": user})
 }
 
-// DeleteUser -> [DEL] on /users/:id
-func (base *Controller) DeleteUser(c *gin.Context) {
-	id := c.Params.ByName("id")
+// UpdateUser -> [PUT] on /users/:email
+func (base *Controller) UpdateUser(c *gin.Context) {
+	user := base.GetUserFromContext(c)
+	targetEmail := c.Params.ByName("email")
 
-	err = service.DeleteUser(base.DB, id)
+	targetUser, err := service.GetUserByEmail(base.DB, targetEmail)
+	if err != nil {
+		c.AbortWithStatus(404)
+	}
+
+	// only admin can update other users
+	if user.Role != "admin" && user.Email != targetUser.Email {
+		c.AbortWithStatus(403)
+	}
+
+	c.ShouldBindJSON(&targetUser)
+
+	// prevent self promotion
+	if user.Role != "admin" && targetUser.Role == "admin" {
+		c.AbortWithStatus(403)
+	}
+
+	targetUser, err = service.UpdateUser(base.DB, targetUser)
+	if err != nil {
+		log.Println(err)
+		c.AbortWithStatus(500)
+	}
+
+	c.JSON(200, targetUser)
+}
+
+// DeleteUser -> [DEL] on /users/:email
+func (base *Controller) DeleteUser(c *gin.Context) {
+	user := base.GetUserFromContext(c)
+	targetEmail := c.Params.ByName("email")
+
+	targetUser, err := service.GetUserByEmail(base.DB, targetEmail)
+	if err != nil {
+		c.AbortWithStatus(404)
+	}
+
+	if user.Role != "admin" && user.Email != targetUser.Email {
+		c.AbortWithStatus(403)
+	}
+
+	err = service.DeleteUserByEmail(base.DB, targetEmail)
 	if err != nil {
 		c.AbortWithStatus(404)
 		return
 	}
 
-	c.JSON(200, gin.H{"id#" + id: "deleted"})
+	c.JSON(200, gin.H{"email#" + targetEmail: "deleted"})
 }
